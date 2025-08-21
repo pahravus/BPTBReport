@@ -1,0 +1,614 @@
+<bundle global_id="3CE28DF3FAFC836FE065002BFF9E4B36" version="1.0" >
+<name><![CDATA[TrialBalancewithGLDetail]]></name>
+<description><![CDATA[]]></description>
+<origin_org><![CDATA[ravus_dev]]></origin_org>
+<origin_created_by><![CDATA[Patrick Herrmann(patrick.herrmann@ravusinc.com)]]></origin_created_by>
+<origin_created_date><![CDATA[21-AUG-25 03.15.07.164208 PM UTC]]></origin_created_date>
+<file_name><![CDATA[TrialBalancewithGLDetail_ravus_dev_20250821_built.bndl]]></file_name>
+<checksum><![CDATA[E78A71C67E37DD1103AC50B7B26F0194]]></checksum>
+<bundle_data><content id="3CE28F3739079AFBE065002BFF9E4B36" parent_id="" execution_order ="1">
+<entity_name><![CDATA[CUSTOM_REPORT]]></entity_name>
+<external_field_name><![CDATA[Name]]></external_field_name>
+<external_field_value><![CDATA[Trial Balance with GL Detail]]></external_field_value>
+<build_status><![CDATA[PENDING]]></build_status>
+<exclude_children_flag><![CDATA[0]]></exclude_children_flag>
+<content_execution>
+<step id="1" entity="CUSTOM_REPORT" type="execute_soap_request" description="execute SOAP request" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:upsert>
+<urn:externalIDFieldName>Name</urn:externalIDFieldName>
+<urn:brmObjects xsi:type="CUSTOM_REPORT">
+<urn:AfterNode>REPORT_C__2112</urn:AfterNode>
+<urn:AfterNodeId>7977</urn:AfterNodeId>
+<urn:AfterReportName>Journal Entry Report</urn:AfterReportName>
+<urn:DeleteMenuFlag>0</urn:DeleteMenuFlag>
+<urn:Delimiter>,</urn:Delimiter>
+<urn:DomainId>8444</urn:DomainId>
+<urn:EntityIdObj><urn:EntityName>GENERAL_LEDGER_TRANSACTION</urn:EntityName></urn:EntityIdObj>
+<urn:ExportRawDataFlag>0</urn:ExportRawDataFlag>
+<urn:ExposePendingApprovalRecords>0</urn:ExposePendingApprovalRecords>
+<urn:LineEnding>Windows style</urn:LineEnding>
+<urn:Name>Trial Balance with GL Detail</urn:Name>
+<urn:ParentNode>REPORT_TAB</urn:ParentNode>
+<urn:ParentNodeId>1853</urn:ParentNodeId>
+<urn:QueryText>~~CDATA_START~~SELECT
+  CAST(f.Id AS VARCHAR2(50)) AS ACCOUNT_ID,
+  CAST(CASE WHEN gld.Source = &apos;TOTAL&apos; THEN f.Number ELSE NULL END AS VARCHAR2(50)) AS FINANCIAL_ACCOUNT_NUMBER,
+  CAST(CASE WHEN gld.Source = &apos;TOTAL&apos; THEN f.Name ELSE NULL END AS VARCHAR2(100)) AS FINANCIAL_ACCOUNT_NAME,
+  CAST(CASE WHEN gld.Source = &apos;TOTAL&apos; THEN f.Type ELSE NULL END AS VARCHAR2(50)) AS FINANCIAL_ACCOUNT_TYPE,
+  CAST(f.FinancialStatement AS VARCHAR2(100)) AS FINANCIAL_STATEMENT,
+  CAST(CASE WHEN gld.Source = &apos;TOTAL&apos; THEN NULL ELSE gld.Source END AS VARCHAR2(100)) AS GL_SOURCE,
+  :CURRENCY AS CURRENCY,
+  CAST(CASE WHEN gld.Source = &apos;TOTAL&apos; THEN &apos;Subtotal&apos; ELSE &apos;Detail&apos; END AS VARCHAR2(50)) AS ROW_TYPE,
+  common_util.format_to_ui(NVL(gld.Balance,0), &apos;CURRENCY&apos;) AS BALANCE,
+  CASE WHEN gld.Source = &apos;TOTAL&apos; THEN 2 ELSE 1 END AS SORT_ORDER,
+  CAST(CASE WHEN gld.Source = &apos;TOTAL&apos; THEN &apos;Subtotal&apos; ELSE NULL END AS VARCHAR2(50)) AS SUMMARY_TYPE,
+  TO_CHAR(gld.FirstTransactionDate, &apos;YYYY-MM-DD&apos;) AS FIRST_TRANSACTION_DATE,
+  TO_CHAR(gld.LastTransactionDate, &apos;YYYY-MM-DD&apos;) AS LAST_TRANSACTION_DATE
+FROM FINANCIAL_ACCOUNT f,
+     ACCOUNTING_PERIOD a,
+     (
+        SELECT
+          gl.FinancialAccountId,
+          gl.Source,
+          MIN(gl.TransactionDate) AS FirstTransactionDate,
+          MAX(gl.TransactionDate) AS LastTransactionDate,
+          (SUM(NVL(gl.DebitAmount,0)) - SUM(NVL(gl.CreditAmount,0))) AS Balance
+        FROM GENERAL_LEDGER_TRANSACTION gl
+        WHERE gl.AccountingPeriodId IN (
+          SELECT ap.Id FROM ACCOUNTING_PERIOD ap
+            CONNECT BY NOCYCLE PRIOR ap.Id = ap.ParentId
+            START WITH ap.Id = :ACCOUNTING_PERIOD)
+          AND gl.CurrencyCode = :CURRENCY
+        GROUP BY gl.FinancialAccountId, gl.Source
+        UNION ALL
+        SELECT
+          gl.FinancialAccountId,
+          &apos;TOTAL&apos; AS Source,
+          MIN(gl.TransactionDate) AS FirstTransactionDate,
+          MAX(gl.TransactionDate) AS LastTransactionDate,
+          (SUM(NVL(gl.DebitAmount,0)) - SUM(NVL(gl.CreditAmount,0))) AS Balance
+        FROM GENERAL_LEDGER_TRANSACTION gl
+        WHERE gl.AccountingPeriodId IN (
+          SELECT ap.Id FROM ACCOUNTING_PERIOD ap
+            CONNECT BY NOCYCLE PRIOR ap.Id = ap.ParentId
+            START WITH ap.Id = :ACCOUNTING_PERIOD)
+          AND gl.CurrencyCode = :CURRENCY
+        GROUP BY gl.FinancialAccountId
+     ) gld
+WHERE f.Id = gld.FinancialAccountId(+)
+  AND a.Id = :ACCOUNTING_PERIOD
+  AND :ACCOUNTING_PERIOD IS NOT NULL
+  AND :CURRENCY IS NOT NULL
+  AND NVL(gld.Balance,0) &lt;&gt; 0
+
+UNION ALL
+
+-- Totals (SUMMARY_TYPE = &apos;Total&apos;)
+SELECT
+  CAST(NULL AS VARCHAR2(50)) AS ACCOUNT_ID,
+  CAST(NULL AS VARCHAR2(50)) AS FINANCIAL_ACCOUNT_NUMBER,
+  CAST(NULL AS VARCHAR2(100)) AS FINANCIAL_ACCOUNT_NAME,
+  CAST(NULL AS VARCHAR2(50)) AS FINANCIAL_ACCOUNT_TYPE,
+  CAST(f.FinancialStatement AS VARCHAR2(100)) AS FINANCIAL_STATEMENT,
+  CAST(NULL AS VARCHAR2(100)) AS GL_SOURCE,
+  :CURRENCY AS CURRENCY,
+  CAST(&apos;Total&apos; AS VARCHAR2(50)) AS ROW_TYPE,
+  common_util.format_to_ui(SUM(NVL(gld.Balance,0)), &apos;CURRENCY&apos;) AS BALANCE,
+  3 AS SORT_ORDER,
+  CAST(&apos;Total&apos; AS VARCHAR2(50)) AS SUMMARY_TYPE,
+  TO_CHAR(MIN(gld.FirstTransactionDate), &apos;YYYY-MM-DD&apos;) AS FIRST_TRANSACTION_DATE,
+  TO_CHAR(MAX(gld.LastTransactionDate), &apos;YYYY-MM-DD&apos;) AS LAST_TRANSACTION_DATE
+FROM FINANCIAL_ACCOUNT f,
+     (
+        SELECT
+          gl.FinancialAccountId,
+          &apos;TOTAL&apos; AS Source,
+          MIN(gl.TransactionDate) AS FirstTransactionDate,
+          MAX(gl.TransactionDate) AS LastTransactionDate,
+          (SUM(NVL(gl.DebitAmount,0)) - SUM(NVL(gl.CreditAmount,0))) AS Balance
+        FROM GENERAL_LEDGER_TRANSACTION gl
+        WHERE gl.AccountingPeriodId IN (
+          SELECT ap.Id FROM ACCOUNTING_PERIOD ap
+            CONNECT BY NOCYCLE PRIOR ap.Id = ap.ParentId
+            START WITH ap.Id = :ACCOUNTING_PERIOD)
+          AND gl.CurrencyCode = :CURRENCY
+        GROUP BY gl.FinancialAccountId
+     ) gld
+WHERE f.Id = gld.FinancialAccountId(+)
+GROUP BY f.FinancialStatement
+HAVING SUM(NVL(gld.Balance,0)) &lt;&gt; 0
+
+UNION ALL
+
+-- Grand Total (SUMMARY_TYPE = &apos;Total&apos;)
+SELECT
+  CAST(NULL AS VARCHAR2(50)) AS ACCOUNT_ID,
+  CAST(NULL AS VARCHAR2(50)) AS FINANCIAL_ACCOUNT_NUMBER,
+  CAST(NULL AS VARCHAR2(100)) AS FINANCIAL_ACCOUNT_NAME,
+  CAST(NULL AS VARCHAR2(50)) AS FINANCIAL_ACCOUNT_TYPE,
+  CAST(NULL AS VARCHAR2(100)) AS FINANCIAL_STATEMENT,
+  CAST(NULL AS VARCHAR2(100)) AS GL_SOURCE,
+  :CURRENCY AS CURRENCY,
+  CAST(&apos;Total&apos; AS VARCHAR2(50)) AS ROW_TYPE,
+  common_util.format_to_ui(SUM(NVL(gld.Balance,0)), &apos;CURRENCY&apos;) AS BALANCE,
+  4 AS SORT_ORDER,
+  CAST(&apos;Total&apos; AS VARCHAR2(50)) AS SUMMARY_TYPE,
+  TO_CHAR(MIN(gld.FirstTransactionDate), &apos;YYYY-MM-DD&apos;) AS FIRST_TRANSACTION_DATE,
+  TO_CHAR(MAX(gld.LastTransactionDate), &apos;YYYY-MM-DD&apos;) AS LAST_TRANSACTION_DATE
+FROM FINANCIAL_ACCOUNT f,
+     (
+        SELECT
+          gl.FinancialAccountId,
+          &apos;TOTAL&apos; AS Source,
+          MIN(gl.TransactionDate) AS FirstTransactionDate,
+          MAX(gl.TransactionDate) AS LastTransactionDate,
+          (SUM(NVL(gl.DebitAmount,0)) - SUM(NVL(gl.CreditAmount,0))) AS Balance
+        FROM GENERAL_LEDGER_TRANSACTION gl
+        WHERE gl.AccountingPeriodId IN (
+          SELECT ap.Id FROM ACCOUNTING_PERIOD ap
+            CONNECT BY NOCYCLE PRIOR ap.Id = ap.ParentId
+            START WITH ap.Id = :ACCOUNTING_PERIOD)
+          AND gl.CurrencyCode = :CURRENCY
+        GROUP BY gl.FinancialAccountId
+     ) gld
+WHERE f.Id = gld.FinancialAccountId(+)
+HAVING SUM(NVL(gld.Balance,0)) &lt;&gt; 0
+
+UNION ALL
+
+-- Check Sum (SUMMARY_TYPE = &apos;Check Sum&apos;)
+SELECT
+  CAST(NULL AS VARCHAR2(50)) AS ACCOUNT_ID,
+  CAST(NULL AS VARCHAR2(50)) AS FINANCIAL_ACCOUNT_NUMBER,
+  CAST(NULL AS VARCHAR2(100)) AS FINANCIAL_ACCOUNT_NAME,
+  CAST(NULL AS VARCHAR2(50)) AS FINANCIAL_ACCOUNT_TYPE,
+  CAST(NULL AS VARCHAR2(100)) AS FINANCIAL_STATEMENT,
+  CAST(NULL AS VARCHAR2(100)) AS GL_SOURCE,
+  :CURRENCY AS CURRENCY,
+  CAST(&apos;Check Sum&apos; AS VARCHAR2(50)) AS ROW_TYPE,
+  common_util.format_to_ui(SUM(BALANCE_NUM), &apos;CURRENCY&apos;) AS BALANCE,
+  5 AS SORT_ORDER,
+  CAST(&apos;Check Sum&apos; AS VARCHAR2(50)) AS SUMMARY_TYPE,
+  TO_CHAR(MIN(FIRST_TRANSACTION_DATE), &apos;YYYY-MM-DD&apos;) AS FIRST_TRANSACTION_DATE,
+  TO_CHAR(MAX(LAST_TRANSACTION_DATE), &apos;YYYY-MM-DD&apos;) AS LAST_TRANSACTION_DATE
+FROM (
+  SELECT SUM(NVL(gld.Balance,0)) AS BALANCE_NUM,
+         MIN(gld.FirstTransactionDate) AS FIRST_TRANSACTION_DATE,
+         MAX(gld.LastTransactionDate) AS LAST_TRANSACTION_DATE
+  FROM FINANCIAL_ACCOUNT f,
+       (
+          SELECT
+            gl.FinancialAccountId,
+            &apos;TOTAL&apos; AS Source,
+            MIN(gl.TransactionDate) AS FirstTransactionDate,
+            MAX(gl.TransactionDate) AS LastTransactionDate,
+            (SUM(NVL(gl.DebitAmount,0)) - SUM(NVL(gl.CreditAmount,0))) AS Balance
+          FROM GENERAL_LEDGER_TRANSACTION gl
+          WHERE gl.AccountingPeriodId IN (
+            SELECT ap.Id FROM ACCOUNTING_PERIOD ap
+              CONNECT BY NOCYCLE PRIOR ap.Id = ap.ParentId
+              START WITH ap.Id = :ACCOUNTING_PERIOD)
+            AND gl.CurrencyCode = :CURRENCY
+          GROUP BY gl.FinancialAccountId
+       ) gld
+  WHERE f.Id = gld.FinancialAccountId(+)
+  GROUP BY f.FinancialStatement
+  UNION ALL
+  SELECT SUM(NVL(gld.Balance,0)) AS BALANCE_NUM,
+         MIN(gld.FirstTransactionDate) AS FIRST_TRANSACTION_DATE,
+         MAX(gld.LastTransactionDate) AS LAST_TRANSACTION_DATE
+  FROM FINANCIAL_ACCOUNT f,
+       (
+          SELECT
+            gl.FinancialAccountId,
+            &apos;TOTAL&apos; AS Source,
+            MIN(gl.TransactionDate) AS FirstTransactionDate,
+            MAX(gl.TransactionDate) AS LastTransactionDate,
+            (SUM(NVL(gl.DebitAmount,0)) - SUM(NVL(gl.CreditAmount,0))) AS Balance
+          FROM GENERAL_LEDGER_TRANSACTION gl
+          WHERE gl.AccountingPeriodId IN (
+            SELECT ap.Id FROM ACCOUNTING_PERIOD ap
+              CONNECT BY NOCYCLE PRIOR ap.Id = ap.ParentId
+              START WITH ap.Id = :ACCOUNTING_PERIOD)
+            AND gl.CurrencyCode = :CURRENCY
+          GROUP BY gl.FinancialAccountId
+       ) gld
+  WHERE f.Id = gld.FinancialAccountId(+)
+)
+WHERE BALANCE_NUM &lt;&gt; 0
+
+ORDER BY 5, 1, 10, 6~~CDATA_END~~</urn:QueryText>
+<urn:ReportBuilder>Advanced</urn:ReportBuilder>
+<urn:ReportDescription>~~CDATA_START~~The Trial Balance with GL Detail combines a standard trial balance with the detailed transactions that make up each balance. It shows account totals and check sums to confirm everything ties out, and also lists the underlying journal entries with their source objects.~~CDATA_END~~</urn:ReportDescription>
+<urn:ReportLabel>Trial Balance with GL Detail</urn:ReportLabel>
+<urn:ReportPositionPath>\Reports\_Ravus Accounting Reports</urn:ReportPositionPath>
+<urn:ShowGrantTotal>0</urn:ShowGrantTotal>
+<urn:ShowSubtotal>0</urn:ShowSubtotal>
+<urn:TextQualifier>&quot;</urn:TextQualifier>
+<urn:XmlFormatFlag>0</urn:XmlFormatFlag>
+</urn:brmObjects></urn:upsert></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="2" entity="CUSTOM_REPORT_LABEL_VERSION" type="execute_soap_request" description="execute SOAP request" loglevel="WARNING">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:upsert>
+<urn:externalIDFieldName>ExternalKey</urn:externalIDFieldName>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_LABEL_VERSION">
+<urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:ExternalKey>Report/Trial Balance with GL Detail/EN</urn:ExternalKey>
+<urn:LabelKey>Report/Trial Balance with GL Detail</urn:LabelKey>
+<urn:LabelText>Trial Balance with GL Detail</urn:LabelText>
+<urn:LanguageCode>EN</urn:LanguageCode>
+<urn:LongDescription>Trial Balance with GL Detail</urn:LongDescription>
+</urn:brmObjects></urn:upsert></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="6" entity="CUSTOM_REPORT_RG" type="delete_all_record" description="deleting all rows based on the results of this execution" loglevel="WARNING">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:query>
+<urn:sql>SELECT {!Custom_ReportObj.Custom_Report_Rg__CustomReportIdObj.Id} as field_value WHERE {!Custom_ReportObj.Name}=&apos;Trial Balance with GL Detail&apos;</urn:sql>
+</urn:query></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="7" entity="CUSTOM_REPORT_RG" type="execute_soap_request" description="execute SOAP request" loglevel="WARNING">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_RG"><urn:CreatePrivelege>0</urn:CreatePrivelege>
+<urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:DeactivatePrivelege>0</urn:DeactivatePrivelege>
+<urn:DomainId>8444</urn:DomainId>
+<urn:ExecutePrivelege>1</urn:ExecutePrivelege>
+<urn:ExternalKey>Trial Balance with GL Detail/BRM_ACCOUNT_ADMIN</urn:ExternalKey>
+<urn:ReadPrivelege>1</urn:ReadPrivelege>
+<urn:RoleIdObj><urn:Name>BRM_ACCOUNT_ADMIN</urn:Name></urn:RoleIdObj>
+<urn:Status>GRANTED</urn:Status>
+<urn:UpdatePrivelege>1</urn:UpdatePrivelege>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="8" entity="CUSTOM_REPORT_RG" type="execute_soap_request" description="execute SOAP request" loglevel="WARNING">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_RG"><urn:CreatePrivelege>0</urn:CreatePrivelege>
+<urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:DeactivatePrivelege>0</urn:DeactivatePrivelege>
+<urn:DomainId>8444</urn:DomainId>
+<urn:ExecutePrivelege>1</urn:ExecutePrivelege>
+<urn:ExternalKey>Trial Balance with GL Detail/SUPPORT_USER</urn:ExternalKey>
+<urn:ReadPrivelege>1</urn:ReadPrivelege>
+<urn:RoleIdObj><urn:Name>SUPPORT_USER</urn:Name></urn:RoleIdObj>
+<urn:Status>GRANTED</urn:Status>
+<urn:UpdatePrivelege>1</urn:UpdatePrivelege>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="9" entity="CUSTOM_REPORT_RG" type="execute_soap_request" description="execute SOAP request" loglevel="WARNING">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_RG"><urn:CreatePrivelege>0</urn:CreatePrivelege>
+<urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:DeactivatePrivelege>0</urn:DeactivatePrivelege>
+<urn:DomainId>8444</urn:DomainId>
+<urn:ExecutePrivelege>0</urn:ExecutePrivelege>
+<urn:ExternalKey>Trial Balance with GL Detail/SUPPORT_VIEWER</urn:ExternalKey>
+<urn:ReadPrivelege>1</urn:ReadPrivelege>
+<urn:RoleIdObj><urn:Name>SUPPORT_VIEWER</urn:Name></urn:RoleIdObj>
+<urn:Status>GRANTED</urn:Status>
+<urn:UpdatePrivelege>0</urn:UpdatePrivelege>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="10" entity="CUSTOM_REPORT_RG" type="execute_soap_request" description="execute SOAP request" loglevel="WARNING">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_RG"><urn:CreatePrivelege>0</urn:CreatePrivelege>
+<urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:DeactivatePrivelege>0</urn:DeactivatePrivelege>
+<urn:DomainId>8444</urn:DomainId>
+<urn:ExecutePrivelege>0</urn:ExecutePrivelege>
+<urn:ExternalKey>Trial Balance with GL Detail/BRM_CUSTOMER_FACING</urn:ExternalKey>
+<urn:ReadPrivelege>0</urn:ReadPrivelege>
+<urn:RoleIdObj><urn:Name>BRM_CUSTOMER_FACING</urn:Name></urn:RoleIdObj>
+<urn:Status>GRANTED</urn:Status>
+<urn:UpdatePrivelege>0</urn:UpdatePrivelege>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="11" entity="CUSTOM_REPORT_RG" type="execute_soap_request" description="execute SOAP request" loglevel="WARNING">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_RG"><urn:CreatePrivelege>0</urn:CreatePrivelege>
+<urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:DeactivatePrivelege>0</urn:DeactivatePrivelege>
+<urn:DomainId>8444</urn:DomainId>
+<urn:ExecutePrivelege>0</urn:ExecutePrivelege>
+<urn:ExternalKey>Trial Balance with GL Detail/BRM_SALES_REP</urn:ExternalKey>
+<urn:ReadPrivelege>0</urn:ReadPrivelege>
+<urn:RoleIdObj><urn:Name>BRM_SALES_REP</urn:Name></urn:RoleIdObj>
+<urn:Status>GRANTED</urn:Status>
+<urn:UpdatePrivelege>0</urn:UpdatePrivelege>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="12" entity="CUSTOM_REPORT_RG" type="execute_soap_request" description="execute SOAP request" loglevel="WARNING">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_RG"><urn:CreatePrivelege>0</urn:CreatePrivelege>
+<urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:DeactivatePrivelege>0</urn:DeactivatePrivelege>
+<urn:DomainId>8444</urn:DomainId>
+<urn:ExecutePrivelege>1</urn:ExecutePrivelege>
+<urn:ExternalKey>Trial Balance with GL Detail/COLLECTIONS</urn:ExternalKey>
+<urn:ReadPrivelege>1</urn:ReadPrivelege>
+<urn:RoleIdObj><urn:Name>COLLECTIONS</urn:Name></urn:RoleIdObj>
+<urn:Status>GRANTED</urn:Status>
+<urn:UpdatePrivelege>1</urn:UpdatePrivelege>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="21" entity="CUSTOM_REPORT_FIELD" type="delete_all_record" description="deleting all rows based on the results of this execution" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:query>
+<urn:sql>SELECT {!Custom_ReportObj.Custom_Report_Field__CustomReportIdObj.Id} as field_value WHERE {!Custom_ReportObj.Name}=&apos;Trial Balance with GL Detail&apos;</urn:sql>
+</urn:query></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="22" entity="CUSTOM_REPORT_FIELD" type="execute_soap_request" description="execute SOAP request" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_FIELD"><urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:EntityFieldIdObj><urn:ExternalKey>GENERAL_LEDGER_TRANSACTION/Id</urn:ExternalKey></urn:EntityFieldIdObj>
+<urn:FieldName>ACCOUNT_ID</urn:FieldName>
+<urn:HiddenFlag>0</urn:HiddenFlag>
+<urn:Pivot>0</urn:Pivot>
+<urn:Position>1</urn:Position>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="23" entity="CUSTOM_REPORT_FIELD" type="execute_soap_request" description="execute SOAP request" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_FIELD"><urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:EntityFieldIdObj><urn:ExternalKey>GENERAL_LEDGER_TRANSACTION/Id</urn:ExternalKey></urn:EntityFieldIdObj>
+<urn:FieldName>FINANCIAL_ACCOUNT_NUMBER</urn:FieldName>
+<urn:HiddenFlag>0</urn:HiddenFlag>
+<urn:Pivot>0</urn:Pivot>
+<urn:Position>2</urn:Position>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="24" entity="CUSTOM_REPORT_FIELD" type="execute_soap_request" description="execute SOAP request" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_FIELD"><urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:EntityFieldIdObj><urn:ExternalKey>GENERAL_LEDGER_TRANSACTION/Id</urn:ExternalKey></urn:EntityFieldIdObj>
+<urn:FieldName>FINANCIAL_ACCOUNT_NAME</urn:FieldName>
+<urn:HiddenFlag>0</urn:HiddenFlag>
+<urn:Pivot>0</urn:Pivot>
+<urn:Position>3</urn:Position>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="25" entity="CUSTOM_REPORT_FIELD" type="execute_soap_request" description="execute SOAP request" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_FIELD"><urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:EntityFieldIdObj><urn:ExternalKey>GENERAL_LEDGER_TRANSACTION/Id</urn:ExternalKey></urn:EntityFieldIdObj>
+<urn:FieldName>FINANCIAL_ACCOUNT_TYPE</urn:FieldName>
+<urn:HiddenFlag>0</urn:HiddenFlag>
+<urn:Pivot>0</urn:Pivot>
+<urn:Position>4</urn:Position>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="26" entity="CUSTOM_REPORT_FIELD" type="execute_soap_request" description="execute SOAP request" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_FIELD"><urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:EntityFieldIdObj><urn:ExternalKey>GENERAL_LEDGER_TRANSACTION/Id</urn:ExternalKey></urn:EntityFieldIdObj>
+<urn:FieldName>FINANCIAL_STATEMENT</urn:FieldName>
+<urn:HiddenFlag>0</urn:HiddenFlag>
+<urn:Pivot>0</urn:Pivot>
+<urn:Position>5</urn:Position>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="27" entity="CUSTOM_REPORT_FIELD" type="execute_soap_request" description="execute SOAP request" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_FIELD"><urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:EntityFieldIdObj><urn:ExternalKey>GENERAL_LEDGER_TRANSACTION/Id</urn:ExternalKey></urn:EntityFieldIdObj>
+<urn:FieldName>GL_SOURCE</urn:FieldName>
+<urn:HiddenFlag>0</urn:HiddenFlag>
+<urn:Pivot>0</urn:Pivot>
+<urn:Position>6</urn:Position>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="28" entity="CUSTOM_REPORT_FIELD" type="execute_soap_request" description="execute SOAP request" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_FIELD"><urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:EntityFieldIdObj><urn:ExternalKey>GENERAL_LEDGER_TRANSACTION/Id</urn:ExternalKey></urn:EntityFieldIdObj>
+<urn:FieldName>CURRENCY</urn:FieldName>
+<urn:HiddenFlag>0</urn:HiddenFlag>
+<urn:Pivot>0</urn:Pivot>
+<urn:Position>7</urn:Position>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="29" entity="CUSTOM_REPORT_FIELD" type="execute_soap_request" description="execute SOAP request" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_FIELD"><urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:EntityFieldIdObj><urn:ExternalKey>GENERAL_LEDGER_TRANSACTION/Id</urn:ExternalKey></urn:EntityFieldIdObj>
+<urn:FieldName>ROW_TYPE</urn:FieldName>
+<urn:HiddenFlag>0</urn:HiddenFlag>
+<urn:Pivot>0</urn:Pivot>
+<urn:Position>8</urn:Position>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="30" entity="CUSTOM_REPORT_FIELD" type="execute_soap_request" description="execute SOAP request" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_FIELD"><urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:EntityFieldIdObj><urn:ExternalKey>GENERAL_LEDGER_TRANSACTION/Id</urn:ExternalKey></urn:EntityFieldIdObj>
+<urn:FieldName>BALANCE</urn:FieldName>
+<urn:HiddenFlag>0</urn:HiddenFlag>
+<urn:Pivot>0</urn:Pivot>
+<urn:Position>9</urn:Position>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="31" entity="CUSTOM_REPORT_FIELD" type="execute_soap_request" description="execute SOAP request" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_FIELD"><urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:EntityFieldIdObj><urn:ExternalKey>GENERAL_LEDGER_TRANSACTION/Id</urn:ExternalKey></urn:EntityFieldIdObj>
+<urn:FieldName>SORT_ORDER</urn:FieldName>
+<urn:HiddenFlag>0</urn:HiddenFlag>
+<urn:Pivot>0</urn:Pivot>
+<urn:Position>10</urn:Position>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="32" entity="CUSTOM_REPORT_FIELD" type="execute_soap_request" description="execute SOAP request" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_FIELD"><urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:EntityFieldIdObj><urn:ExternalKey>GENERAL_LEDGER_TRANSACTION/Id</urn:ExternalKey></urn:EntityFieldIdObj>
+<urn:FieldName>SUMMARY_TYPE</urn:FieldName>
+<urn:HiddenFlag>0</urn:HiddenFlag>
+<urn:Pivot>0</urn:Pivot>
+<urn:Position>11</urn:Position>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="33" entity="CUSTOM_REPORT_FIELD" type="execute_soap_request" description="execute SOAP request" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_FIELD"><urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:EntityFieldIdObj><urn:ExternalKey>GENERAL_LEDGER_TRANSACTION/Id</urn:ExternalKey></urn:EntityFieldIdObj>
+<urn:FieldName>FIRST_TRANSACTION_DATE</urn:FieldName>
+<urn:HiddenFlag>0</urn:HiddenFlag>
+<urn:Pivot>0</urn:Pivot>
+<urn:Position>12</urn:Position>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="34" entity="CUSTOM_REPORT_FIELD" type="execute_soap_request" description="execute SOAP request" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_FIELD"><urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:EntityFieldIdObj><urn:ExternalKey>GENERAL_LEDGER_TRANSACTION/Id</urn:ExternalKey></urn:EntityFieldIdObj>
+<urn:FieldName>LAST_TRANSACTION_DATE</urn:FieldName>
+<urn:HiddenFlag>0</urn:HiddenFlag>
+<urn:Pivot>0</urn:Pivot>
+<urn:Position>13</urn:Position>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="58" entity="CUSTOM_REPORT_FILTER" type="delete_all_record" description="deleting all rows based on the results of this execution" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:query>
+<urn:sql>SELECT {!Custom_ReportObj.Custom_Report_Filter__CustomReportIdObj.Id} as field_value WHERE {!Custom_ReportObj.Name}=&apos;Trial Balance with GL Detail&apos;</urn:sql>
+</urn:query></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="59" entity="CUSTOM_REPORT_FILTER" type="execute_soap_request" description="execute SOAP request" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_FILTER"><urn:AllowMultiSelect>0</urn:AllowMultiSelect>
+<urn:BindVariableName>~~CDATA_START~~ACCOUNTING_PERIOD~~CDATA_END~~</urn:BindVariableName>
+<urn:ConditionId>3</urn:ConditionId>
+<urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:EntityFieldIdObj><urn:ExternalKey>ACCOUNTING_PERIOD/ParentId</urn:ExternalKey></urn:EntityFieldIdObj>
+<urn:FilterName>Accounting Period</urn:FilterName>
+<urn:RelationshipField>~~CDATA_START~~{!General_Ledger_TransactionObj.AccountingPeriodIdObj.ParentId}~~CDATA_END~~</urn:RelationshipField>
+<urn:RequiredFlag>1</urn:RequiredFlag>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="60" entity="CUSTOM_REPORT_FILTER" type="execute_soap_request" description="execute SOAP request" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_FILTER"><urn:AllowMultiSelect>0</urn:AllowMultiSelect>
+<urn:BindVariableName>~~CDATA_START~~CURRENCY~~CDATA_END~~</urn:BindVariableName>
+<urn:ConditionId>3</urn:ConditionId>
+<urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:EntityFieldIdObj><urn:ExternalKey>GENERAL_LEDGER_TRANSACTION/CurrencyCode</urn:ExternalKey></urn:EntityFieldIdObj>
+<urn:FilterName>Currency</urn:FilterName>
+<urn:RelationshipField>~~CDATA_START~~{!General_Ledger_TransactionObj.CurrencyCode}~~CDATA_END~~</urn:RelationshipField>
+<urn:RequiredFlag>1</urn:RequiredFlag>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+<step id="61" entity="CUSTOM_REPORT_FILTER" type="execute_soap_request" description="execute SOAP request" loglevel="ERROR">
+<![CDATA[<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:stronglytyped.soap.brmsystems.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<soapenv:Header><urn:SessionHeader><urn:SessionID>#{SessionId}</urn:SessionID></urn:SessionHeader></soapenv:Header>
+<soapenv:Body><urn:create>
+<urn:brmObjects xsi:type="CUSTOM_REPORT_FILTER"><urn:AllowMultiSelect>1</urn:AllowMultiSelect>
+<urn:BindVariableName>~~CDATA_START~~ACCOUNT~~CDATA_END~~</urn:BindVariableName>
+<urn:ConditionId>3</urn:ConditionId>
+<urn:CustomReportIdObj><urn:Name>Trial Balance with GL Detail</urn:Name></urn:CustomReportIdObj>
+<urn:EntityFieldIdObj><urn:ExternalKey>GENERAL_LEDGER_TRANSACTION/AccountId</urn:ExternalKey></urn:EntityFieldIdObj>
+<urn:FilterName>Account</urn:FilterName>
+<urn:RelationshipField>~~CDATA_START~~{!General_Ledger_TransactionObj.AccountId}~~CDATA_END~~</urn:RelationshipField>
+<urn:RequiredFlag>0</urn:RequiredFlag>
+</urn:brmObjects>
+</urn:create></soapenv:Body>
+</soapenv:Envelope>]]>
+</step>
+
+</content_execution></content>
+</bundle_data>
+</bundle>
