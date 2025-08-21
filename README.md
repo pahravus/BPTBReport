@@ -1,6 +1,6 @@
 # BillingPlatform Revenue Recognition Reports
 
-This workspace contains SQL and configuration files for custom financial reports used in revenue recognition and accounting analysis.
+This workspace contains configuration files for custom financial reports used in revenue recognition and accounting analysis.
 
 ## Reports Overview
 
@@ -10,24 +10,6 @@ This workspace contains SQL and configuration files for custom financial reports
 - Filters out zero-balance rows.
 - Supports filtering by accounting period, currency, and account.
 - See: [Reports/Trial Balance/TrialBalance](Reports/Trial%20Balance/TrialBalance)
-
-### Journal Entry Report
-- Lists journal entries with debit/credit amounts, account names, and origin objects.
-- Groups by journal entry ID.
-- Supports filtering by accounting period and currency.
-- See: [Reports/Journal Entry Report/JournalEntryReport](Reports/Journal%20Entry%20Report/JournalEntryReport)
-
-### Journal Entry Report - Monthly
-- Aggregates journal entries by month and origin object.
-- Shows revenue periods and days for contract products.
-- Supports filtering by accounting period and currency.
-- See: [Reports/Journal Entry Report - Monthly/JournalEntryReport-Monthly](Reports/Journal%20Entry%20Report%20-%20Monthly/JournalEntryReport-Monthly)
-
-### Revenue Waterfall Report
-- Tracks deferred, unbilled, and accounts receivable balances by contract and month.
-- Calculates beginning and ending balances for each category.
-- Supports filtering by accounting period, currency, and contract ID.
-- See: [Reports/Revenue Waterfall Report/RevenueWaterfallReport](Reports/Revenue%20Waterfall%20Report/RevenueWaterfallReport)
 
 ## Usage
 
