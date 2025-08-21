@@ -1,4 +1,4 @@
-# BillingPlatform Revenue Recognition Reports
+# BillingPlatform - Trial Balance with GL Detail Report
 
 This workspace contains configuration files for custom financial reports used in revenue recognition and accounting analysis.
 
@@ -43,10 +43,7 @@ After upload:
 
 > **Note:** Files are checked for integrity before import. Corrupted or altered files will not be imported.
 
-## Author
-
-Patrick Herrmann  
-patrick.herrmann@ravusinc.com
-
+## Contact
 ---
-For questions or enhancements, contact the author
+For questions or enhancements, contact info@ravusinc.com
+
