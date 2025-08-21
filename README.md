@@ -44,6 +44,6 @@ After upload:
 > **Note:** Files are checked for integrity before import. Corrupted or altered files will not be imported.
 
 ## Contact
----
-For questions or enhancements, contact info@ravusinc.com
 
+For questions or enhancements, contact info@ravusinc.com
+---
