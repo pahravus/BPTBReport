@@ -4,12 +4,12 @@ This workspace contains configuration files for custom financial reports used in
 
 ## Reports Overview
 
-### Trial Balance Report
+### Trial Balance with GL Detail Report
 - Summarizes account balances by financial statement and account.
 - Includes detail, subtotal, statement total, grand total, and check sum rows.
 - Filters out zero-balance rows.
 - Supports filtering by accounting period, currency, and account.
-- See: [Reports/Trial Balance/TrialBalance](Reports/Trial%20Balance/TrialBalance)
+- See: [Reports/Trial Balance with GL Detail/TrialBalancewithGLDetail_ravus_dev_20250821_built.bndl](Reports/Trial%20Balance%20with%20GL%20Detail/TrialBalancewithGLDetail_ravus_dev_20250821_built.bndl)
 
 ## Usage
 
@@ -20,7 +20,8 @@ This workspace contains configuration files for custom financial reports used in
 ## Structure
 
 - `Reports/` contains all report definitions and configuration bundles.
-- Each report folder includes the main SQL file and, where applicable, supporting bundle/config files.
+  - `Trial Balance with GL Detail/` contains `TrialBalancewithGLDetail_ravus_dev_20250821_built.bndl`
+- Each report folder includes the main SQL file and supporting bundle/config files.
 
 ## Importing Configuration Bundles
 
