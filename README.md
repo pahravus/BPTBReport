@@ -45,5 +45,5 @@ After upload:
 
 ## Contact
 
-For questions or enhancements, contact info@ravusinc.com
+For questions, contact info@ravusinc.com
 ---
